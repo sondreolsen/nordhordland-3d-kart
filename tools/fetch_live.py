@@ -103,6 +103,47 @@ def in_box(lon, lat):
 
 
 def ais():
+    """AIS fra BarentsWatch hvis klient-ID er satt (fungerer fra GitHub), ellers Kystverkets TCP-strøm."""
+    if os.environ.get("BW_CLIENT_ID") and os.environ.get("BW_CLIENT_SECRET"):
+        return ais_barentswatch()
+    return ais_tcp()
+
+
+def ais_barentswatch():
+    tok = requests.post("https://id.barentswatch.no/connect/token", timeout=30, headers=UA, data={
+        "client_id": os.environ["BW_CLIENT_ID"], "client_secret": os.environ["BW_CLIENT_SECRET"],
+        "scope": "ais", "grant_type": "client_credentials"})
+    tok.raise_for_status()
+    now = datetime.now(timezone.utc)
+    x0, y0, x1, y1 = BBOX
+    body = {
+        "geometry": {"type": "Polygon", "coordinates": [[[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]]},
+        "since": (now - timedelta(minutes=45)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "modelType": "Full", "modelFormat": "Json",
+    }
+    r = requests.post("https://live.ais.barentswatch.no/live/v1/latest/combined", json=body, timeout=60,
+                      headers={**UA, "Authorization": "Bearer " + tok.json()["access_token"]})
+    r.raise_for_status()
+    skip = []
+    for s in r.json():
+        lon, lat = s.get("longitude"), s.get("latitude")
+        if lon is None or lat is None or not in_box(lon, lat):
+            continue
+        sog, cog, hdg = s.get("speedOverGround"), s.get("courseOverGround"), s.get("trueHeading")
+        skip.append({
+            "mmsi": str(s["mmsi"]), "lon": round(lon, 5), "lat": round(lat, 5),
+            "fart": None if sog is None or sog >= 102.3 else round(sog, 1),
+            "kurs": None if cog is None or cog >= 360 else round(cog, 1),
+            "retning": None if hdg is None or hdg >= 511 else int(hdg),
+            "tid": s.get("msgtime") or now.isoformat(),
+            "navn": (s.get("name") or "").strip(), "type": s.get("shipType") or 0,
+            "dest": (s.get("destination") or "").strip(), "lengde": s.get("shipLength") or 0,
+        })
+    print(f"AIS (BarentsWatch): {len(skip)} skip i området")
+    return {"hentet": now.isoformat(), "kilde": "BarentsWatch", "skip": skip}
+
+
+def ais_tcp():
     prev = previous("ais.json")
     names = prev.get("statisk", {})
     ships = {s["mmsi"]: s for s in prev.get("skip", [])}
