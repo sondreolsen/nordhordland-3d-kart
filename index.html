@@ -29,6 +29,7 @@
     --body:'Inter', 'Segoe UI', system-ui, sans-serif;
   }
   *{box-sizing:border-box}
+  [hidden]{display:none!important}
   html,body{height:100%;margin:0}
   body{font-family:var(--body);background:#e9eee6;color:var(--text);overflow:hidden}
   #map{position:absolute;inset:0}
@@ -193,7 +194,7 @@
 <div class="toast" id="toast" hidden></div>
 
 <script>
-(() => {
+(async () => {
   const BASE = new URL('.', location.href).href;
   const ENTUR = 'https://api.entur.io/realtime/v2/vehicles/graphql';
   const CLIENT = 'sondreolsen-nordhordland3d';
@@ -238,21 +239,24 @@
     return s;
   }
 
+  // Hent stilen før kartet lages. Å starte med en tom stil og bytte etterpå
+  // kan avbryte byttet, og da blir byggene og sanntidslagene aldri lagt til.
+  let style;
+  try { style = await buildStyle(); }
+  catch { toast('Klarte ikke å laste bakgrunnskartet. Last siden på nytt.'); return; }
+
   const start = PLACES[0];
   const map = new maplibregl.Map({
-    container: 'map', style: { version: 8, sources: {}, layers: [] },
+    container: 'map', style,
     center: start.c, zoom: 15.6, pitch: 62, bearing: start.b, maxPitch: 80, hash: 'kart',
     attributionControl: { compact: true },
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
   window.nhMap = map; // for feilsøking i konsollen
 
-  buildStyle().then(s => map.setStyle(s)).catch(() => toast('Klarte ikke å laste bakgrunnskartet.'));
-
   let styleReady = false;
   map.on('style.load', () => {
-    // Den tomme startstilen laster også; vent på den ekte (har terrengkilden).
-    if (styleReady || !map.getSource('terrain')) return;
+    if (styleReady) return;
     styleReady = true;
     map.setTerrain({ source: 'terrain', exaggeration: 1 });
     addBuildings();
