@@ -2,732 +2,622 @@
 <html lang="no">
 <head>
 <meta charset="utf-8">
-<title>Nordhordland i 3D</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<title>Nordhordland i 3D</title>
+<meta name="description" content="Åpent 3D-kart over Nordhordland: bygninger med høyder fra laserdata, busser i sanntid, skip, temperatur og politiloggen.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js"></script>
 <style>
-  /* MapLibre GL's own baseline CSS, inlined (its stylesheet is hosted off the
-     Artifact CSP allowlist, so it is hand-copied here instead of linked): just
-     enough for the canvas to size itself and for the attribution strip to render.
-     The zoom/compass controls are replaced below by this page's own themed ones. */
-  .maplibregl-map{font:12px/20px Helvetica Neue,Arial,Helvetica,sans-serif;overflow:hidden;position:relative;-webkit-tap-highlight-color:rgba(0,0,0,0);}
-  .maplibregl-canvas{left:0;position:absolute;top:0;}
-  .maplibregl-canvas-container.maplibregl-interactive{cursor:grab;-webkit-user-select:none;user-select:none;}
-  .maplibregl-canvas-container.maplibregl-interactive:active{cursor:grabbing;}
-  .maplibregl-canvas-container.maplibregl-touch-zoom-rotate,
-  .maplibregl-canvas-container.maplibregl-touch-zoom-rotate .maplibregl-canvas{touch-action:pan-x pan-y;}
-  .maplibregl-canvas-container.maplibregl-touch-drag-pan,
-  .maplibregl-canvas-container.maplibregl-touch-drag-pan .maplibregl-canvas{touch-action:pinch-zoom;}
-  .maplibregl-ctrl-bottom-left,.maplibregl-ctrl-bottom-right,.maplibregl-ctrl-top-left,.maplibregl-ctrl-top-right{pointer-events:none;position:absolute;z-index:2;}
-  .maplibregl-ctrl-top-left{left:0;top:0;}
-  .maplibregl-ctrl-top-right{right:0;top:0;}
-  .maplibregl-ctrl-bottom-left{bottom:0;left:0;}
-  .maplibregl-ctrl-bottom-right{bottom:0;right:0;}
-  .maplibregl-ctrl{clear:both;pointer-events:auto;}
-  .maplibregl-ctrl-attrib{
-    font-size:10.5px;
-    background:rgba(16,38,54,0.72);
-    color:var(--text-lo,#aebcc2);
-    padding:2px 8px;
-    margin:0 8px 8px 0;
-    border-radius:6px;
-  }
-  .maplibregl-ctrl-attrib a{color:#e9d8b4;}
-  .maplibregl-ctrl-attrib-button{display:none;}
-
-  /* Layout: full-bleed 3D map canvas with a floating glass control panel (top-left),
-     a search bar (top-center on desktop, stacked on phone), a layer-attribution strip
-     (bottom), and a collapsible legend. */
+  /* Layout: fullskjerms 3D-kart, mørkt sidepanel til venstre (kollapsbart, bunnark på mobil),
+     koordinatbrikke nederst, infokort for valgt objekt øverst til høyre. */
   :root{
-    --fjord-900:#0b1f2b;
-    --fjord-700:#163044;
-    --fjord-500:#2a5574;
-    --mist:#e9eef0;
-    --paper:#f6f3ec;
-    --moss:#5c7a53;
-    --moss-700:#3f5839;
-    --amber:#c98a3b;
-    --line: rgba(255,255,255,0.14);
-    --panel-bg: rgba(11,31,43,0.78);
-    --panel-bg-solid:#102636;
-    --text-hi:#f3f6f4;
-    --text-lo:#aebcc2;
-    --focus:#e7b45e;
-    color-scheme: dark;
+    --panel:#141b1b;
+    --panel-2:#1c2525;
+    --line:rgba(255,255,255,.10);
+    --text:#eef2ee;
+    --muted:#9aa7a2;
+    --lime:#c4ef5b;
+    --lime-ink:#17220a;
+    --bus:#e4572e;
+    --ferry:#2f7fd1;
+    --ship:#2b6cb0;
+    --police:#1d3f8f;
+    --chip:#ffffff;
+    --chip-ink:#1d2622;
+    --display:'Manrope', 'Segoe UI', system-ui, sans-serif;
+    --body:'Inter', 'Segoe UI', system-ui, sans-serif;
   }
-  @media (prefers-color-scheme: light){
-    :root:not([data-theme="dark"]){
-      --panel-bg: rgba(16,38,54,0.82);
-    }
-  }
-  *{box-sizing:border-box;}
-  html,body{height:100%;margin:0;}
-  body{
-    font-family:'Inter',system-ui,sans-serif;
-    background:var(--fjord-900);
-    color:var(--text-hi);
-    overflow:hidden;
-    padding-left:max(0px, env(safe-area-inset-left,0px));
-    padding-right:max(0px, env(safe-area-inset-right,0px));
-  }
-  #map{position:absolute;inset:0;background:var(--fjord-900);}
-
-  .brand{
-    position:absolute;
-    top:max(16px, env(safe-area-inset-top,0px));
-    left:max(16px, env(safe-area-inset-left,0px));
-    z-index:5;
-    pointer-events:none;
-  }
-  .brand h1{
-    font-family:'Fraunces',serif;
-    font-weight:600;
-    font-size:22px;
-    margin:0;
-    letter-spacing:0.2px;
-    color:var(--text-hi);
-    text-shadow:0 2px 10px rgba(0,0,0,0.55);
-  }
-  .brand p{
-    margin:2px 0 0;
-    font-size:11.5px;
-    letter-spacing:0.14em;
-    text-transform:uppercase;
-    color:var(--text-lo);
-    text-shadow:0 1px 6px rgba(0,0,0,0.6);
-  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{font-family:var(--body);background:#e9eee6;color:var(--text);overflow:hidden}
+  #map{position:absolute;inset:0}
 
   .panel{
-    position:absolute;
-    z-index:6;
-    background:var(--panel-bg);
-    backdrop-filter:blur(14px) saturate(140%);
-    -webkit-backdrop-filter:blur(14px) saturate(140%);
-    border:1px solid var(--line);
-    border-radius:14px;
-    box-shadow:0 12px 32px rgba(0,0,0,0.35);
-    color:var(--text-hi);
+    position:absolute;z-index:5;
+    top:max(10px, env(safe-area-inset-top));left:max(10px, env(safe-area-inset-left));
+    width:330px;max-height:calc(100% - 20px);overflow:auto;
+    background:var(--panel);border-radius:18px;
+    box-shadow:0 18px 50px rgba(10,20,18,.35);
+    padding:20px 22px 18px;
+    display:flex;flex-direction:column;gap:18px;
+    scrollbar-width:thin;scrollbar-color:#36423f transparent;
   }
+  .panel.collapsed .collapsible{display:none}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .logo{width:26px;height:26px;border-radius:7px;background:var(--lime);display:grid;place-items:center}
+  .brand b{font-family:var(--display);font-weight:800;letter-spacing:.16em;font-size:12.5px;text-transform:uppercase;flex:1}
+  .icon-btn{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--text);cursor:pointer;font-size:18px;line-height:1}
+  .icon-btn:hover{background:var(--panel-2)}
+  .eyebrow{font-family:var(--display);font-weight:800;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--lime);margin:0}
+  h1{font-family:var(--display);font-weight:800;font-size:38px;line-height:1.02;letter-spacing:-.02em;margin:8px 0 10px;text-wrap:balance}
+  .lead{color:#c9d2ce;font-size:13.5px;line-height:1.5;margin:0}
+  .label{font-family:var(--display);font-weight:700;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0 0 9px}
+  .places{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .place{all:unset;cursor:pointer;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+  .place:hover{border-color:#3b4a45}
+  .place:focus-visible,.icon-btn:focus-visible,select:focus-visible,.btn:focus-visible,.toggle input:focus-visible+span{outline:2px solid var(--lime);outline-offset:2px}
+  .place b{font-family:var(--display);font-size:13.5px}
+  .place small{color:var(--muted);font-size:11px}
+  hr{border:none;border-top:1px solid var(--line);margin:0}
+  select{width:100%;appearance:none;background:var(--panel-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23c4ef5b' stroke-width='2' fill='none'/%3E%3C/svg%3E") no-repeat right 14px center;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:11px 14px;font:inherit;font-size:13.5px}
+  .toggles{display:flex;flex-direction:column;gap:11px}
+  .toggle{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:13px;cursor:pointer}
+  .toggle .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .toggle .name{flex:1}
+  .toggle .count{color:var(--muted);font-family:var(--body);font-weight:500;font-size:11.5px;font-variant-numeric:tabular-nums}
+  .toggle input{position:absolute;opacity:0;pointer-events:none}
+  .toggle input+span{width:38px;height:22px;border-radius:99px;background:#3a4541;position:relative;flex:none;transition:background .15s}
+  .toggle input+span::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#e8ece9;transition:transform .15s}
+  .toggle input:checked+span{background:var(--lime)}
+  .toggle input:checked+span::after{transform:translateX(16px);background:#18230b}
+  .weather{display:flex;align-items:center;gap:12px;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .weather .temp{font-family:var(--display);font-weight:800;font-size:28px;font-variant-numeric:tabular-nums;min-width:74px}
+  .weather .meta{font-size:12px;color:var(--muted);line-height:1.45}
+  .weather .meta b{color:var(--text);font-weight:600}
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .btn{all:unset;cursor:pointer;text-align:center;font-family:var(--display);font-weight:700;font-size:13px;padding:12px 10px;border-radius:10px;border:1px solid var(--line)}
+  .btn.primary{background:var(--lime);color:var(--lime-ink);border-color:var(--lime)}
+  .btn:hover{filter:brightness(1.07)}
+  .fine{color:#7f8c87;font-size:11px;line-height:1.5;margin:0}
+  .fine a{color:#b9c6c1}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11.5px;color:#c9d2ce}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  .police-list{display:flex;flex-direction:column;gap:6px;max-height:210px;overflow:auto}
+  .police-item{all:unset;cursor:pointer;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:12px;line-height:1.4}
+  .police-item b{font-family:var(--display);font-size:12.5px}
+  .police-item small{display:block;color:var(--muted)}
+  .police-item.nh{border-color:#4f6a2a}
 
-  #controls{
-    top:max(78px, calc(env(safe-area-inset-top,0px) + 78px));
-    left:max(16px, env(safe-area-inset-left,0px));
-    width:272px;
-    max-height:calc(100% - 110px);
-    overflow-y:auto;
-    padding:16px;
-    display:flex;
-    flex-direction:column;
-    gap:16px;
-  }
-  #controls::-webkit-scrollbar{width:8px;}
-  #controls::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.18);border-radius:8px;}
+  .coord{position:absolute;z-index:4;left:max(360px, calc(env(safe-area-inset-left) + 360px));bottom:max(14px, env(safe-area-inset-bottom));
+    background:var(--chip);color:var(--chip-ink);border-radius:10px;padding:7px 12px;font-size:12px;font-weight:600;
+    box-shadow:0 4px 14px rgba(0,0,0,.12);display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
+  .coord .live{width:7px;height:7px;border-radius:50%;background:#58b947;box-shadow:0 0 0 3px rgba(88,185,71,.2)}
+  .card{position:absolute;z-index:6;right:max(60px, calc(env(safe-area-inset-right) + 60px));top:max(14px, env(safe-area-inset-top));width:290px;
+    background:var(--panel);border-radius:14px;padding:14px 16px;box-shadow:0 14px 40px rgba(0,0,0,.3);font-size:12.5px;line-height:1.5}
+  .card h3{font-family:var(--display);font-size:15px;margin:0 0 6px}
+  .card dl{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:0}
+  .card dt{color:var(--muted)}
+  .card dd{margin:0;font-variant-numeric:tabular-nums}
+  .card .close{position:absolute;top:8px;right:8px;width:28px;height:28px;font-size:15px}
+  .card .msgs{max-height:200px;overflow:auto;margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+  .card .msgs p{margin:0 0 8px}
+  .card .msgs time{color:var(--muted);font-size:11px;display:block}
+  .tag{display:inline-block;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:600;background:#2b3633}
+  .tag.laser{background:#2f5a1e;color:#d8f5b0}.tag.osm{background:#1f3f66;color:#cfe3ff}.tag.estimat{background:#5b3c17;color:#ffe0b3}
+  .toast{position:absolute;z-index:9;left:50%;bottom:60px;transform:translateX(-50%);background:var(--panel);padding:10px 16px;border-radius:10px;font-size:13px}
+  .maplibregl-ctrl-group{border-radius:10px;overflow:hidden}
+  .maplibregl-popup-content{border-radius:10px;font-family:var(--body);font-size:12px;color:#1d2622;padding:8px 11px}
 
-  .group{display:flex;flex-direction:column;gap:8px;}
-  .group-label{
-    font-size:11px;
-    letter-spacing:0.12em;
-    text-transform:uppercase;
-    color:var(--text-lo);
-    font-weight:600;
+  @media (max-width: 760px){
+    .panel{top:auto;bottom:max(10px, env(safe-area-inset-bottom));left:max(10px, env(safe-area-inset-left));right:max(10px, env(safe-area-inset-right));width:auto;max-height:55%;padding:16px}
+    h1{font-size:28px}
+    .coord{left:max(10px, env(safe-area-inset-left));top:max(10px, env(safe-area-inset-top));bottom:auto}
+    .card{left:max(10px, env(safe-area-inset-left));right:max(10px, env(safe-area-inset-right));width:auto;top:56px}
   }
-
-  .seg{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:6px;
-  }
-  .seg button{
-    appearance:none;
-    border:1px solid var(--line);
-    background:rgba(255,255,255,0.04);
-    color:var(--text-hi);
-    font:inherit;
-    font-size:12.5px;
-    font-weight:500;
-    padding:8px 6px;
-    border-radius:8px;
-    cursor:pointer;
-    transition:background .15s,border-color .15s;
-    min-width:0;
-  }
-  .seg button span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .seg button:hover{background:rgba(255,255,255,0.09);}
-  .seg button.active{
-    background:var(--moss);
-    border-color:var(--moss);
-    color:#0b1f0b;
-    font-weight:700;
-  }
-  .seg button:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible{
-    outline:2px solid var(--focus);
-    outline-offset:2px;
-  }
-
-  .row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
-  .row label{font-size:12.5px;color:var(--text-hi);}
-  .switch{
-    position:relative;width:38px;height:22px;flex:none;
-  }
-  .switch input{position:absolute;inset:0;opacity:0;cursor:pointer;margin:0;}
-  .switch .track{
-    position:absolute;inset:0;border-radius:99px;
-    background:rgba(255,255,255,0.16);
-    transition:background .15s;
-  }
-  .switch .thumb{
-    position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;
-    background:#fff;transition:transform .15s;
-    box-shadow:0 1px 3px rgba(0,0,0,0.4);
-  }
-  .switch input:checked + .track{background:var(--moss);}
-  .switch input:checked + .track + .thumb{transform:translateX(16px);}
-
-  .slider-row{display:flex;flex-direction:column;gap:4px;}
-  .slider-head{display:flex;justify-content:space-between;font-size:12.5px;}
-  .slider-head b{font-variant-numeric:tabular-nums;font-weight:600;color:var(--amber);}
-  input[type="range"]{
-    -webkit-appearance:none;appearance:none;
-    width:100%;height:4px;border-radius:99px;
-    background:rgba(255,255,255,0.18);
-    cursor:pointer;
-  }
-  input[type="range"]::-webkit-slider-thumb{
-    -webkit-appearance:none;appearance:none;
-    width:16px;height:16px;border-radius:50%;
-    background:var(--amber);border:2px solid #16304433;
-    box-shadow:0 1px 4px rgba(0,0,0,0.5);
-  }
-  input[type="range"]::-moz-range-thumb{
-    width:16px;height:16px;border-radius:50%;border:none;
-    background:var(--amber);
-  }
-
-  .btnrow{display:flex;gap:8px;}
-  .btn{
-    flex:1;
-    appearance:none;border:1px solid var(--line);
-    background:rgba(255,255,255,0.05);
-    color:var(--text-hi);font:inherit;font-size:12.5px;font-weight:600;
-    padding:9px 8px;border-radius:9px;cursor:pointer;
-    transition:background .15s;
-  }
-  .btn:hover{background:rgba(255,255,255,0.1);}
-  .btn.primary{background:var(--moss);border-color:var(--moss);color:#0b1f0b;}
-  .btn.primary:hover{background:var(--moss-700);color:#fff;}
-
-  select{
-    width:100%;
-    font:inherit;font-size:13px;
-    background:rgba(255,255,255,0.05);
-    color:var(--text-hi);
-    border:1px solid var(--line);
-    border-radius:8px;
-    padding:8px 10px;
-  }
-  select option{color:#111;}
-
-  #search-wrap{
-    position:absolute;
-    top:max(16px, env(safe-area-inset-top,0px));
-    left:50%;
-    transform:translateX(-50%);
-    width:min(380px, calc(100vw - 32px));
-    z-index:7;
-  }
-  #search-wrap .box{
-    display:flex;align-items:center;gap:8px;
-    padding:9px 12px;
-  }
-  #search-wrap svg{flex:none;opacity:0.7;}
-  #search{
-    flex:1;border:none;background:transparent;color:var(--text-hi);
-    font:inherit;font-size:13.5px;outline:none;
-    min-width:0;
-  }
-  #search::placeholder{color:var(--text-lo);}
-  #results{
-    margin-top:6px;
-    max-height:220px;overflow-y:auto;
-    display:none;
-  }
-  #results.show{display:block;}
-  #results button{
-    display:block;width:100%;text-align:left;
-    background:none;border:none;color:var(--text-hi);
-    font:inherit;font-size:13px;padding:9px 12px;
-    cursor:pointer;border-top:1px solid var(--line);
-  }
-  #results button:hover{background:rgba(255,255,255,0.08);}
-  #results button small{display:block;color:var(--text-lo);font-size:11px;margin-top:1px;}
-
-  #legend{
-    position:absolute;
-    right:max(16px, env(safe-area-inset-right,0px));
-    bottom:max(16px, env(safe-area-inset-bottom,0px));
-    z-index:6;
-    padding:10px 12px;
-    font-size:11px;
-    color:var(--text-lo);
-    max-width:220px;
-    line-height:1.5;
-  }
-  #legend b{color:var(--text-hi);font-weight:600;}
-  #legend a{color:var(--amber);}
-
-  #compass{
-    position:absolute;
-    right:max(16px, env(safe-area-inset-right,0px));
-    top:max(78px, calc(env(safe-area-inset-top,0px) + 78px));
-    z-index:6;
-    width:52px;height:52px;
-    display:flex;align-items:center;justify-content:center;
-    cursor:pointer;
-    padding:0;
-  }
-  #compass svg{transition:transform .1s linear;}
-
-  #zoomctl{
-    position:absolute;
-    right:max(16px, env(safe-area-inset-right,0px));
-    top:max(138px, calc(env(safe-area-inset-top,0px) + 138px));
-    z-index:6;
-    display:flex;flex-direction:column;
-    overflow:hidden;
-  }
-  #zoomctl button{
-    appearance:none;border:none;background:transparent;
-    color:var(--text-hi);width:40px;height:38px;
-    font-size:18px;font-weight:600;cursor:pointer;
-    display:flex;align-items:center;justify-content:center;
-  }
-  #zoomctl button:first-child{border-bottom:1px solid var(--line);}
-  #zoomctl button:hover{background:rgba(255,255,255,0.09);}
-
-  @media (max-width: 720px){
-    .brand{display:none;}
-    #search-wrap{top:max(16px, env(safe-area-inset-top,0px));width:calc(100vw - 32px);}
-    #controls{
-      top:auto;
-      bottom:max(16px, env(safe-area-inset-bottom,0px));
-      left:max(16px, env(safe-area-inset-left,0px));
-      right:max(16px, env(safe-area-inset-right,0px));
-      width:auto;
-      max-height:48vh;
-    }
-    #compass{top:max(74px, calc(env(safe-area-inset-top,0px) + 74px));}
-    #legend{display:none;}
-  }
-
-  .hint{font-size:11px;color:var(--text-lo);line-height:1.4;}
+  @media (prefers-reduced-motion: reduce){ *{transition:none!important} }
 </style>
 </head>
 <body>
-
 <div id="map"></div>
 
-<div class="brand">
-  <h1>Nordhordland i 3D</h1>
-  <p>Terreng &middot; Fleire karttenester</p>
-</div>
-
-<div id="search-wrap" class="panel">
-  <div class="box">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    <input id="search" type="text" placeholder="Søk etter stad i Nordhordland …" autocomplete="off">
-  </div>
-  <div id="results"></div>
-</div>
-
-<button id="compass" class="panel" title="Nullstill retning" aria-label="Nullstill retning">
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-    <circle cx="12" cy="12" r="10" stroke="var(--text-lo)" stroke-width="1.2"/>
-    <path d="M12 3 L15 12 L12 21 L9 12 Z" fill="#c23b3b"/>
-    <path d="M12 12 L15 12 L12 3 Z" fill="#e9eef0"/>
-  </svg>
-</button>
-
-<div id="zoomctl" class="panel">
-  <button id="zoom-in" title="Zoom inn" aria-label="Zoom inn">+</button>
-  <button id="zoom-out" title="Zoom ut" aria-label="Zoom ut">&minus;</button>
-</div>
-
-<div id="controls" class="panel">
-
-  <div class="group">
-    <div class="group-label">Karttenester</div>
-    <div class="seg" id="base-seg">
-      <button data-base="topo" class="active"><span>Topografisk</span></button>
-      <button data-base="graatone"><span>Gråtone</span></button>
-      <button data-base="sjokart"><span>Sjøkart</span></button>
-      <button data-base="flyfoto"><span>Flyfoto</span></button>
-    </div>
-    <div class="hint" id="base-credit">Kjelde: Kartverket (topografisk raster)</div>
+<aside class="panel" id="panel">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 16 16"><path d="M2 14V6l6-4 6 4v8H10v-4H6v4z" fill="#17220a"/></svg></span>
+    <b>Nordhordland 3D</b>
+    <button class="icon-btn" id="collapse" aria-label="Skjul panel" title="Skjul panel">–</button>
   </div>
 
-  <div class="group">
-    <div class="group-label">3D-terreng</div>
-    <div class="row">
-      <label for="terrain-toggle">Vis høgdemodell</label>
-      <div class="switch">
-        <input type="checkbox" id="terrain-toggle" checked>
-        <div class="track"></div>
-        <div class="thumb"></div>
-      </div>
-    </div>
-    <div class="slider-row">
-      <div class="slider-head"><span>Overdriving</span><b id="exag-val">1.4×</b></div>
-      <input type="range" id="exag" min="0" max="3" step="0.1" value="1.4">
-    </div>
-    <div class="row">
-      <label for="sky-toggle">Himmel &amp; lys</label>
-      <div class="switch">
-        <input type="checkbox" id="sky-toggle" checked>
-        <div class="track"></div>
-        <div class="thumb"></div>
-      </div>
+  <div class="collapsible">
+    <p class="eyebrow">Et åpent 3D-kart</p>
+    <h1>Nordhordland, bygning for bygning.</h1>
+    <p class="lead">Utforsk tak, kvartaler og fjordlandskap. Husene er bygd fra OpenStreetMap-omriss med høyder fra Kartverkets lasermålinger.</p>
+  </div>
+
+  <div class="collapsible">
+    <p class="label">Start utforskingen</p>
+    <div class="places" id="places"></div>
+  </div>
+
+  <div class="collapsible">
+    <p class="label">Temperatur her nå</p>
+    <div class="weather" id="weather">
+      <div class="temp" id="w-temp">–</div>
+      <div class="meta" id="w-meta">Henter fra MET Norge …</div>
     </div>
   </div>
 
-  <div class="group">
-    <div class="group-label">Kameravinkel</div>
-    <div class="slider-row">
-      <div class="slider-head"><span>Helling (pitch)</span><b id="pitch-val">60°</b></div>
-      <input type="range" id="pitch" min="0" max="85" step="1" value="60">
-    </div>
-    <div class="slider-row">
-      <div class="slider-head"><span>Retning (bearing)</span><b id="bearing-val">-12°</b></div>
-      <input type="range" id="bearing" min="-180" max="180" step="1" value="-12">
-    </div>
-  </div>
+  <hr class="collapsible">
 
-  <div class="group">
-    <div class="group-label">Hopp til stad</div>
-    <select id="jump">
-      <option value="">Vel stad …</option>
+  <div class="collapsible">
+    <p class="label">Kartlag</p>
+    <select id="basemap" aria-label="Bakgrunnskart">
+      <option value="lyst">Lyst kart</option>
+      <option value="topo">Topografisk (Kartverket)</option>
+      <option value="graatone">Gråtone (Kartverket)</option>
+      <option value="sjokart">Sjøkart (Kartverket)</option>
+      <option value="flyfoto">Flyfoto (Esri)</option>
     </select>
   </div>
 
-  <div class="btnrow">
-    <button class="btn primary" id="reset-view">Nullstill vising</button>
+  <div class="toggles collapsible">
+    <label class="toggle"><span class="name">Vis 3D-bygninger</span><span class="count" id="c-bygg"></span><input type="checkbox" id="t-bygg" checked><span></span></label>
+    <label class="toggle"><span class="name">Farge etter høydekilde</span><input type="checkbox" id="t-kilde"><span></span></label>
+    <label class="toggle"><span class="dot" style="background:var(--bus)"></span><span class="name">Busser og ferjer (Entur)</span><span class="count" id="c-buss"></span><input type="checkbox" id="t-buss" checked><span></span></label>
+    <label class="toggle"><span class="dot" style="background:var(--ship)"></span><span class="name">Skip (Kystverket AIS)</span><span class="count" id="c-ais"></span><input type="checkbox" id="t-ais" checked><span></span></label>
+    <label class="toggle"><span class="dot" style="background:#f2c230"></span><span class="name">Fyr og lykter (Kystverket)</span><span class="count" id="c-fyr"></span><input type="checkbox" id="t-fyr"><span></span></label>
+    <label class="toggle"><span class="dot" style="background:var(--police)"></span><span class="name">Politiloggen</span><span class="count" id="c-politi"></span><input type="checkbox" id="t-politi" checked><span></span></label>
+    <label class="toggle"><span class="name">Terreng i 3D</span><input type="checkbox" id="t-terreng" checked><span></span></label>
   </div>
-</div>
 
-<div id="legend" class="panel">
-  <b>Nordhordland i 3D</b><br>
-  MapLibre GL JS med terrengheving frå høgdedata, og WMTS/REST-lag frå Kartverket og Esri.
-  <br><br>
-  <span id="zoom-readout">z 9.0</span> · <span id="elev-readout"></span>
-</div>
+  <div class="legend collapsible" id="legend" hidden>
+    <span><i style="background:#7fae4e"></i>Laser (DOM−DTM)</span>
+    <span><i style="background:#5b8fd6"></i>OSM-tagger</span>
+    <span><i style="background:#d99a4a"></i>Estimat</span>
+  </div>
+
+  <div class="collapsible">
+    <p class="label">Politiloggen – Vest</p>
+    <div class="police-list" id="police-list"><p class="fine">Henter …</p></div>
+  </div>
+
+  <div class="btns collapsible">
+    <button class="btn primary" id="share">Del utsnitt ↗</button>
+    <a class="btn" href="https://github.com/sondreolsen/nordhordland-3d-kart" target="_blank" rel="noopener">Bruk data ↗</a>
+  </div>
+
+  <p class="fine collapsible" id="credits">Bygninger © OpenStreetMap-bidragsytere (ODbL), høyder fra Kartverket (DOM/DTM 1 m). Sanntid: Entur, Kystverket, Politiets fellestjenester, MET Norge.</p>
+</aside>
+
+<div class="coord" id="coord"><span class="live"></span><span id="coord-text">60.5453° N · 5.2821° Ø · 3D Nordhordland</span></div>
+<div class="card" id="card" hidden></div>
+<div class="toast" id="toast" hidden></div>
 
 <script>
-(function(){
+(() => {
+  const BASE = new URL('.', location.href).href;
+  const ENTUR = 'https://api.entur.io/realtime/v2/vehicles/graphql';
+  const CLIENT = 'sondreolsen-nordhordland3d';
+  const BBOX = { minLat: 60.30, minLon: 4.55, maxLat: 61.15, maxLon: 6.30 };
 
-  // ---------- Map services (raster tile sources, several providers) ----------
-  const BASES = {
-    topo: {
-      name:'Topografisk',
-      credit:'Kjelde: Kartverket (topografisk raster)',
-      tiles:['https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png'],
-      attribution:'&copy; <a href="https://www.kartverket.no" target="_blank" rel="noopener">Kartverket</a>'
-    },
-    graatone: {
-      name:'Gråtone',
-      credit:'Kjelde: Kartverket (gråtone raster)',
-      tiles:['https://cache.kartverket.no/v1/wmts/1.0.0/topograatone/default/webmercator/{z}/{y}/{x}.png'],
-      attribution:'&copy; <a href="https://www.kartverket.no" target="_blank" rel="noopener">Kartverket</a>'
-    },
-    sjokart: {
-      name:'Sjøkart',
-      credit:'Kjelde: Kartverket (sjøkartraster)',
-      tiles:['https://cache.kartverket.no/v1/wmts/1.0.0/sjokartraster/default/webmercator/{z}/{y}/{x}.png'],
-      attribution:'&copy; <a href="https://www.kartverket.no" target="_blank" rel="noopener">Kartverket sjødivisjon</a>'
-    },
-    flyfoto: {
-      name:'Flyfoto',
-      credit:'Kjelde: Esri World Imagery (satellitt/flyfoto)',
-      tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
-      attribution:'&copy; <a href="https://www.esri.com" target="_blank" rel="noopener">Esri, Maxar, Earthstar Geographics</a>'
-    }
-  };
-
-  // Elevation (terrain-RGB "terrarium" encoding) from the open AWS terrain tile set.
-  const TERRAIN_TILES = ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'];
-
-  const NORDHORDLAND_CENTER = [5.32, 60.78];
-  const NORDHORDLAND_ZOOM = 9.1;
-
-  function styleFor(baseKey){
-    const base = BASES[baseKey];
-    return {
-      version: 8,
-      sources: {
-        base: {
-          type:'raster',
-          tiles: base.tiles,
-          tileSize: 256,
-          maxzoom: 18,
-          attribution: base.attribution
-        },
-        'terrain-dem': {
-          type:'raster-dem',
-          tiles: TERRAIN_TILES,
-          tileSize: 256,
-          maxzoom: 15,
-          encoding:'terrarium',
-          attribution:'Høgdedata: AWS Terrain Tiles / Mapzen (CC-BY)'
-        },
-        hillshade: {
-          type:'raster-dem',
-          tiles: TERRAIN_TILES,
-          tileSize: 256,
-          maxzoom: 15,
-          encoding:'terrarium'
-        }
-      },
-      layers: [
-        { id:'bg', type:'background', paint:{ 'background-color':'#0b1f2b' } },
-        { id:'base', type:'raster', source:'base', paint:{ 'raster-fade-duration': 120 } },
-        {
-          id:'hillshade', type:'hillshade', source:'hillshade',
-          paint:{
-            'hillshade-exaggeration': 0.55,
-            // Semi-transparent so the base raster (topo/sjøkart/flyfoto) shows through
-            // instead of being fully painted over by the shading.
-            'hillshade-shadow-color':'rgba(16,28,38,0.42)',
-            'hillshade-highlight-color':'rgba(253,246,227,0.3)',
-            'hillshade-accent-color':'rgba(42,85,116,0.18)'
-          }
-        }
-      ],
-      sky: {
-        'sky-color':'#7fb4d9',
-        'sky-horizon-blend': 0.5,
-        'horizon-color':'#e9d8b4',
-        'horizon-fog-blend': 0.6,
-        'fog-color':'#cfe3ea',
-        'fog-ground-blend': 0.6
-      }
-    };
-  }
-
-  let currentBase = 'topo';
-
-  const map = new maplibregl.Map({
-    container:'map',
-    style: styleFor(currentBase),
-    center: NORDHORDLAND_CENTER,
-    zoom: NORDHORDLAND_ZOOM,
-    pitch: 60,
-    bearing: -12,
-    maxPitch: 85,
-    attributionControl: { compact:true }
-  });
-
-  document.getElementById('zoom-in').addEventListener('click', () => map.zoomIn({ duration:250 }));
-  document.getElementById('zoom-out').addEventListener('click', () => map.zoomOut({ duration:250 }));
-
-  let terrainOn = true;
-  let skyOn = true;
-  let exaggeration = 1.4;
-
-  function applyTerrain(){
-    if (terrainOn && map.getSource('terrain-dem')) {
-      map.setTerrain({ source:'terrain-dem', exaggeration });
-    } else {
-      map.setTerrain(null);
-    }
-  }
-
-  map.on('load', () => {
-    applyTerrain();
-    if (!skyOn) map.setLayoutProperty('hillshade','visibility','none');
-  });
-
-  // Re-apply terrain + sky visibility whenever the style is rebuilt (base layer switch).
-  map.on('style.load', () => {
-    applyTerrain();
-    if (map.getLayer('hillshade')) {
-      map.setLayoutProperty('hillshade','visibility', skyOn ? 'visible':'none');
-    }
-  });
-
-  // ---------- Base-layer switch ----------
-  const baseSeg = document.getElementById('base-seg');
-  const baseCredit = document.getElementById('base-credit');
-  baseSeg.addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-base]');
-    if (!btn) return;
-    const key = btn.dataset.base;
-    if (key === currentBase) return;
-    currentBase = key;
-    [...baseSeg.querySelectorAll('button')].forEach(b => b.classList.toggle('active', b === btn));
-    baseCredit.textContent = BASES[key].credit;
-    map.setStyle(styleFor(key));
-  });
-
-  // ---------- Terrain toggle & exaggeration ----------
-  const terrainToggle = document.getElementById('terrain-toggle');
-  const exagInput = document.getElementById('exag');
-  const exagVal = document.getElementById('exag-val');
-  terrainToggle.addEventListener('change', () => {
-    terrainOn = terrainToggle.checked;
-    applyTerrain();
-  });
-  exagInput.addEventListener('input', () => {
-    exaggeration = parseFloat(exagInput.value);
-    exagVal.textContent = exaggeration.toFixed(1) + '×';
-    applyTerrain();
-  });
-
-  const skyToggle = document.getElementById('sky-toggle');
-  skyToggle.addEventListener('change', () => {
-    skyOn = skyToggle.checked;
-    if (map.getLayer('hillshade')) {
-      map.setLayoutProperty('hillshade','visibility', skyOn ? 'visible':'none');
-    }
-  });
-
-  // ---------- Pitch / bearing sliders ----------
-  const pitchInput = document.getElementById('pitch');
-  const pitchVal = document.getElementById('pitch-val');
-  const bearingInput = document.getElementById('bearing');
-  const bearingVal = document.getElementById('bearing-val');
-
-  pitchInput.addEventListener('input', () => {
-    map.setPitch(parseFloat(pitchInput.value));
-  });
-  bearingInput.addEventListener('input', () => {
-    map.setBearing(parseFloat(bearingInput.value));
-  });
-  map.on('pitchend', () => { pitchInput.value = map.getPitch(); pitchVal.textContent = Math.round(map.getPitch())+'°'; });
-  map.on('rotate', () => {
-    bearingInput.value = map.getBearing().toFixed(0);
-    bearingVal.textContent = Math.round(map.getBearing())+'°';
-    const compassSvg = document.querySelector('#compass svg');
-    compassSvg.style.transform = 'rotate(' + (-map.getBearing()) + 'deg)';
-  });
-  map.on('pitch', () => {
-    pitchVal.textContent = Math.round(map.getPitch())+'°';
-  });
-
-  document.getElementById('compass').addEventListener('click', () => {
-    map.easeTo({ bearing:0, pitch:60, duration:600 });
-  });
-
-  document.getElementById('reset-view').addEventListener('click', () => {
-    map.easeTo({ center:NORDHORDLAND_CENTER, zoom:NORDHORDLAND_ZOOM, pitch:60, bearing:-12, duration:900 });
-  });
-
-  // ---------- Zoom / elevation readout ----------
-  const zoomReadout = document.getElementById('zoom-readout');
-  map.on('move', () => {
-    zoomReadout.textContent = 'z ' + map.getZoom().toFixed(1);
-  });
-  map.on('mousemove', (e) => {
-    const elev = map.queryTerrainElevation(e.lngLat, { exaggerated:false });
-    document.getElementById('elev-readout').textContent = (elev != null) ? Math.round(elev) + ' moh.' : '';
-  });
-
-  // ---------- Known places (quick jump) ----------
   const PLACES = [
-    { name:'Knarvik', kommune:'Alver', lng:5.282, lat:60.545, zoom:12 },
-    { name:'Frekhaug', kommune:'Alver', lng:5.228, lat:60.479, zoom:12 },
-    { name:'Lindås (Ostereidet)', kommune:'Alver', lng:5.293, lat:60.715, zoom:11 },
-    { name:'Manger', kommune:'Alver', lng:5.038, lat:60.629, zoom:12 },
-    { name:'Mongstad', kommune:'Alver', lng:5.036, lat:60.805, zoom:12 },
-    { name:'Austrheim (Kaland)', kommune:'Austrheim', lng:4.908, lat:60.783, zoom:11 },
-    { name:'Fedje', kommune:'Fedje', lng:4.692, lat:60.777, zoom:12 },
-    { name:'Matre', kommune:'Masfjorden', lng:5.482, lat:60.885, zoom:11 },
-    { name:'Lonevåg', kommune:'Osterøy', lng:5.544, lat:60.521, zoom:12 },
-    { name:'Valestrandfossen', kommune:'Osterøy', lng:5.479, lat:60.459, zoom:12 },
-    { name:'Mo (Modalen)', kommune:'Modalen', lng:5.825, lat:60.794, zoom:11 },
-    { name:'Dale', kommune:'Vaksdal', lng:5.808, lat:60.586, zoom:12 }
+    { n: 'Knarvik', k: 'Alver', c: [5.2830, 60.5470], z: 16.2, b: -20 },
+    { n: 'Frekhaug', k: 'Alver', c: [5.2310, 60.5150], z: 16.2, b: 30 },
+    { n: 'Manger', k: 'Alver', c: [5.0390, 60.6390], z: 16, b: 0 },
+    { n: 'Mongstad', k: 'Alver', c: [5.0300, 60.8090], z: 14.6, b: -30 },
+    { n: 'Fedje', k: 'Fedje', c: [4.7140, 60.7790], z: 15.4, b: 20 },
+    { n: 'Lonevåg', k: 'Osterøy', c: [5.5050, 60.5250], z: 16, b: -10 },
   ];
 
-  const jumpSelect = document.getElementById('jump');
-  PLACES.forEach((p, i) => {
-    const opt = document.createElement('option');
-    opt.value = i;
-    opt.textContent = p.name + ' (' + p.kommune + ')';
-    jumpSelect.appendChild(opt);
-  });
-  jumpSelect.addEventListener('change', () => {
-    if (jumpSelect.value === '') return;
-    const p = PLACES[parseInt(jumpSelect.value,10)];
-    map.easeTo({ center:[p.lng,p.lat], zoom:p.zoom, pitch:60, duration:1100 });
-  });
+  // ---------- bakgrunnskart ----------
+  const RASTERS = {
+    topo: { tiles: ['https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png'], attr: '© Kartverket' },
+    graatone: { tiles: ['https://cache.kartverket.no/v1/wmts/1.0.0/topograatone/default/webmercator/{z}/{y}/{x}.png'], attr: '© Kartverket' },
+    sjokart: { tiles: ['https://cache.kartverket.no/v1/wmts/1.0.0/sjokartraster/default/webmercator/{z}/{y}/{x}.png'], attr: '© Kartverket' },
+    flyfoto: { tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], attr: '© Esri, Maxar' },
+  };
 
-  // ---------- Place search via Geonorge's stedsnavn API, restricted to Nordhordland ----------
-  // Bounding box roughly covering Alver, Austrheim, Fedje, Masfjorden, Modalen, Osterøy, Vaksdal.
-  const BBOX = { minLat:60.30, maxLat:61.15, minLng:4.55, maxLng:6.30 };
-
-  const searchInput = document.getElementById('search');
-  const resultsBox = document.getElementById('results');
-  let searchTimer = null;
-
-  searchInput.addEventListener('input', () => {
-    const q = searchInput.value.trim();
-    clearTimeout(searchTimer);
-    if (q.length < 2) { resultsBox.classList.remove('show'); resultsBox.innerHTML=''; return; }
-    searchTimer = setTimeout(() => runSearch(q), 300);
-  });
-
-  async function runSearch(q){
-    try {
-      const url = 'https://ws.geonorge.no/stedsnavn/v1/navn?sok=' + encodeURIComponent(q + '*') + '&treffPerSide=25&fuzzy=true';
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('søk feila');
-      const data = await res.json();
-      const hits = (data.navn || []).filter(n => {
-        const p = n.representasjonspunkt;
-        if (!p) return false;
-        const lat = p.nord, lng = p['øst'];
-        return lat >= BBOX.minLat && lat <= BBOX.maxLat && lng >= BBOX.minLng && lng <= BBOX.maxLng;
-      });
-      renderResults(hits, q);
-    } catch (err) {
-      resultsBox.innerHTML = '<div class="hint" style="padding:10px 12px;">Søket feila – prøv igjen.</div>';
-      resultsBox.classList.add('show');
+  async function buildStyle() {
+    const s = await (await fetch('https://tiles.openfreemap.org/styles/positron')).json();
+    // Lysere, grønnere uttrykk som minner om terrengkart; fjern 2D-bygg (vi tegner egne i 3D).
+    s.layers = s.layers.filter(l => l.id !== 'building');
+    for (const l of s.layers) {
+      if (l.id === 'background') l.paint = { 'background-color': '#eef1e8' };
+      if (l.id === 'landcover_wood') l.paint = { 'fill-color': '#d3e2c6', 'fill-opacity': 0.9 };
+      if (l.id === 'park') l.paint = { 'fill-color': '#dbe8cf' };
+      if (l.id === 'landuse_residential') l.paint = { 'fill-color': '#e7ebe1' };
+      if (l.id === 'water') l.paint = { 'fill-color': '#c9dde4' };
     }
+    s.sources.terrain = { type: 'raster-dem', tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], tileSize: 256, maxzoom: 15, encoding: 'terrarium', attribution: 'Terreng: AWS Terrain Tiles (inkl. Kartverket)' };
+    s.sources.hill = { type: 'raster-dem', tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'], tileSize: 256, maxzoom: 15, encoding: 'terrarium' };
+    for (const [k, r] of Object.entries(RASTERS)) s.sources['r-' + k] = { type: 'raster', tiles: r.tiles, tileSize: 256, maxzoom: 19, attribution: r.attr };
+    const firstLine = s.layers.findIndex(l => l.type === 'line');
+    const rasterLayers = Object.keys(RASTERS).map(k => ({ id: 'r-' + k, type: 'raster', source: 'r-' + k, layout: { visibility: 'none' } }));
+    const hill = { id: 'hillshade', type: 'hillshade', source: 'hill', paint: { 'hillshade-exaggeration': 0.35, 'hillshade-shadow-color': 'rgba(60,80,60,0.35)', 'hillshade-highlight-color': 'rgba(255,255,255,0.25)', 'hillshade-accent-color': 'rgba(0,0,0,0)' } };
+    s.layers.splice(firstLine, 0, ...rasterLayers, hill);
+    s.sky = { 'sky-color': '#cfe0ea', 'horizon-color': '#eef3f2', 'fog-color': '#eef1e8', 'sky-horizon-blend': 0.6, 'horizon-fog-blend': 0.7, 'fog-ground-blend': 0.85 };
+    return s;
   }
 
-  function renderResults(hits, q){
-    if (!hits.length){
-      resultsBox.innerHTML = '<div class="hint" style="padding:10px 12px;">Ingen treff i Nordhordland for «' + escapeHtml(q) + '».</div>';
-      resultsBox.classList.add('show');
-      return;
-    }
-    const seen = new Set();
-    resultsBox.innerHTML = '';
-    hits.slice(0, 12).forEach(h => {
-      const key = h.skrivemåte + '|' + h.stedsnummer;
-      if (seen.has(key)) return;
-      seen.add(key);
-      const kommuneNavn = (h.kommuner && h.kommuner[0]) ? h.kommuner[0].kommunenavn : '';
-      const btn = document.createElement('button');
-      btn.innerHTML = escapeHtml(h.skrivemåte) + '<small>' + escapeHtml(h.navneobjekttype) + (kommuneNavn ? ' · ' + escapeHtml(kommuneNavn) : '') + '</small>';
-      btn.addEventListener('click', () => {
-        const p = h.representasjonspunkt;
-        map.easeTo({ center:[p['øst'], p.nord], zoom:13, pitch:60, duration:1100 });
-        resultsBox.classList.remove('show');
-        searchInput.value = h.skrivemåte;
-      });
-      resultsBox.appendChild(btn);
+  const start = PLACES[0];
+  const map = new maplibregl.Map({
+    container: 'map', style: { version: 8, sources: {}, layers: [] },
+    center: start.c, zoom: 15.6, pitch: 62, bearing: start.b, maxPitch: 80, hash: 'kart',
+    attributionControl: { compact: true },
+  });
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
+  window.nhMap = map; // for feilsøking i konsollen
+
+  buildStyle().then(s => map.setStyle(s)).catch(() => toast('Klarte ikke å laste bakgrunnskartet.'));
+
+  let styleReady = false;
+  map.on('style.load', () => {
+    if (styleReady) return;
+    styleReady = true;
+    map.setTerrain({ source: 'terrain', exaggeration: 1 });
+    addBuildings();
+    addLiveLayers();
+    startLive();
+    map.fire('move');
+  });
+
+  // ---------- 3D-bygg ----------
+  const SRC_COLOR = ['match', ['get', 's'], 'laser', '#7fae4e', 'osm', '#5b8fd6', '#d99a4a'];
+  function addBuildings() {
+    map.addSource('bygg', { type: 'vector', tiles: [BASE + 'buildings/{z}/{x}/{y}.pbf'], minzoom: 13, maxzoom: 15, promoteId: 'id', attribution: 'Bygg © OpenStreetMap, høyder © Kartverket' });
+    const before = map.getStyle().layers.find(l => l.type === 'symbol')?.id;
+    map.addLayer({
+      id: 'bygg-vegg', type: 'fill-extrusion', source: 'bygg', 'source-layer': 'buildings', minzoom: 13,
+      filter: ['==', ['get', 'k'], 'w'],
+      paint: {
+        'fill-extrusion-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#c4ef5b', '#a9aeb0'],
+        'fill-extrusion-height': ['get', 'h'], 'fill-extrusion-base': ['get', 'b'],
+        'fill-extrusion-opacity': 0.97, 'fill-extrusion-vertical-gradient': true,
+      },
+    }, before);
+    map.addLayer({
+      id: 'bygg-tak', type: 'fill-extrusion', source: 'bygg', 'source-layer': 'buildings', minzoom: 14,
+      filter: ['==', ['get', 'k'], 'r'],
+      paint: { 'fill-extrusion-color': '#8f9496', 'fill-extrusion-height': ['get', 'h'], 'fill-extrusion-base': ['get', 'b'], 'fill-extrusion-opacity': 0.97 },
+    }, before);
+
+    let hoverId = null;
+    map.on('mousemove', 'bygg-vegg', e => {
+      map.getCanvas().style.cursor = 'pointer';
+      const f = e.features[0];
+      if (hoverId !== null) map.setFeatureState({ source: 'bygg', sourceLayer: 'buildings', id: hoverId }, { hover: false });
+      hoverId = f.id;
+      if (hoverId != null) map.setFeatureState({ source: 'bygg', sourceLayer: 'buildings', id: hoverId }, { hover: true });
     });
-    resultsBox.classList.add('show');
+    map.on('mouseleave', 'bygg-vegg', () => {
+      map.getCanvas().style.cursor = '';
+      if (hoverId !== null) map.setFeatureState({ source: 'bygg', sourceLayer: 'buildings', id: hoverId }, { hover: false });
+      hoverId = null;
+    });
+    map.on('click', 'bygg-vegg', e => showBuilding(e.features[0], e.lngLat));
+    fetch(BASE + 'buildings/stats.json').then(r => r.json()).then(s => {
+      document.getElementById('c-bygg').textContent = s.bygg.toLocaleString('nb-NO');
+    }).catch(() => {});
   }
 
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const TYPE_NB = { house: 'Bolighus', detached: 'Enebolig', residential: 'Bolig', apartments: 'Leilighetsbygg', garage: 'Garasje', shed: 'Bod', cabin: 'Hytte', barn: 'Låve', farm_auxiliary: 'Driftsbygning', industrial: 'Industri', commercial: 'Næringsbygg', retail: 'Butikk', school: 'Skole', church: 'Kirke', boathouse: 'Naust', yes: 'Bygning', terrace: 'Rekkehus', office: 'Kontor', warehouse: 'Lager', kindergarten: 'Barnehage', hut: 'Hytte/bu', farm: 'Gårdshus', semidetached_house: 'Tomannsbolig' };
+  const SRC_NB = { laser: 'Laser (Kartverket DOM − DTM)', osm: 'OpenStreetMap-tagger', estimat: 'Estimat etter bygningstype' };
+
+  function showBuilding(f, ll) {
+    const p = f.properties;
+    const osmUrl = p.id ? `https://www.openstreetmap.org/${p.id[0] === 'w' ? 'way' : 'relation'}/${p.id.slice(1)}` : null;
+    openCard(`
+      <h3>${esc(p.n || TYPE_NB[p.t] || p.t || 'Bygning')}</h3>
+      <dl>
+        <dt>Type</dt><dd>${esc(TYPE_NB[p.t] || p.t || '–')}</dd>
+        <dt>Mønehøyde</dt><dd>${fmt(p.r ?? p.h)} m</dd>
+        <dt>Gesims/vegg</dt><dd>${fmt(p.h)} m</dd>
+        <dt>Høydekilde</dt><dd><span class="tag ${esc(p.s)}">${esc(SRC_NB[p.s] || p.s)}</span></dd>
+        <dt>Posisjon</dt><dd>${ll.lat.toFixed(5)}° N, ${ll.lng.toFixed(5)}° Ø</dd>
+      </dl>
+      ${osmUrl ? `<p style="margin:8px 0 0"><a style="color:var(--lime)" href="${osmUrl}" target="_blank" rel="noopener">Se i OpenStreetMap ↗</a></p>` : ''}`);
   }
 
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('#search-wrap')) resultsBox.classList.remove('show');
+  // ---------- sanntidslag ----------
+  function arrowIcon(color, size = 34) {
+    const c = document.createElement('canvas'); c.width = c.height = size * 2;
+    const g = c.getContext('2d'); g.scale(2, 2);
+    g.translate(size / 2, size / 2);
+    g.fillStyle = color; g.strokeStyle = '#fff'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(0, -size * 0.42); g.lineTo(size * 0.26, size * 0.34); g.lineTo(0, size * 0.2); g.lineTo(-size * 0.26, size * 0.34); g.closePath();
+    g.fill(); g.stroke();
+    return { width: size * 2, height: size * 2, data: g.getImageData(0, 0, size * 2, size * 2).data };
+  }
+
+  function addLiveLayers() {
+    const empty = { type: 'FeatureCollection', features: [] };
+    map.addImage('ship-arrow', arrowIcon('#2b6cb0'), { pixelRatio: 2 });
+    map.addImage('ship-arrow-pass', arrowIcon('#7b4fc9'), { pixelRatio: 2 });
+    map.addImage('ship-arrow-cargo', arrowIcon('#2f8f6b'), { pixelRatio: 2 });
+
+    map.addSource('fyr', { type: 'geojson', data: empty });
+    map.addLayer({ id: 'fyr', type: 'circle', source: 'fyr', layout: { visibility: 'none' }, paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 2.5, 15, 6], 'circle-color': ['get', 'farge'],
+      'circle-stroke-color': '#1d2622', 'circle-stroke-width': 1.2, 'circle-pitch-alignment': 'map' } });
+
+    map.addSource('ais', { type: 'geojson', data: empty });
+    map.addLayer({ id: 'ais', type: 'symbol', source: 'ais', layout: {
+      'icon-image': ['match', ['get', 'gruppe'], 'pass', 'ship-arrow-pass', 'last', 'ship-arrow-cargo', 'ship-arrow'],
+      'icon-size': ['interpolate', ['linear'], ['zoom'], 9, 0.45, 15, 0.9],
+      'icon-rotate': ['coalesce', ['get', 'rot'], 0], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true,
+      'text-field': ['step', ['zoom'], '', 12, ['coalesce', ['get', 'navn'], '']], 'text-font': ['Noto Sans Regular'],
+      'text-size': 11, 'text-offset': [0, 1.5], 'text-optional': true } ,
+      paint: { 'text-color': '#16406e', 'text-halo-color': '#fff', 'text-halo-width': 1.4 } });
+
+    map.addSource('politi', { type: 'geojson', data: empty });
+    map.addLayer({ id: 'politi', type: 'circle', source: 'politi', paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 6, 15, 11], 'circle-color': '#1d3f8f',
+      'circle-opacity': ['case', ['get', 'aktiv'], 1, 0.55], 'circle-stroke-color': '#fff', 'circle-stroke-width': 2 } });
+    map.addLayer({ id: 'politi-ikon', type: 'symbol', source: 'politi', layout: { 'text-field': '!', 'text-font': ['Noto Sans Bold'], 'text-size': 12, 'text-allow-overlap': true }, paint: { 'text-color': '#fff' } });
+
+    map.addSource('buss', { type: 'geojson', data: empty });
+    map.addLayer({ id: 'buss', type: 'circle', source: 'buss', paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 4, 16, 11],
+      'circle-color': ['match', ['get', 'mode'], 'FERRY', '#2f7fd1', 'RAIL', '#6b3fa0', '#e4572e'],
+      'circle-stroke-color': '#fff', 'circle-stroke-width': 2, 'circle-pitch-alignment': 'map' } });
+    map.addLayer({ id: 'buss-nr', type: 'symbol', source: 'buss', minzoom: 11, layout: {
+      'text-field': ['get', 'linje'], 'text-font': ['Noto Sans Bold'], 'text-size': ['interpolate', ['linear'], ['zoom'], 11, 8, 16, 11],
+      'text-allow-overlap': true }, paint: { 'text-color': '#fff' } });
+
+    for (const id of ['buss', 'ais', 'politi', 'fyr']) {
+      map.on('mouseenter', id, () => map.getCanvas().style.cursor = 'pointer');
+      map.on('mouseleave', id, () => map.getCanvas().style.cursor = '');
+    }
+    map.on('click', 'buss', e => showVehicle(e.features[0].properties.id));
+    map.on('click', 'ais', e => showShip(e.features[0].properties));
+    map.on('click', 'politi', e => showPolice(e.features[0].properties.id));
+    map.on('click', 'fyr', e => showLight(e.features[0].properties));
+  }
+
+  // ---------- Entur: kjøretøy i sanntid med jevn animasjon ----------
+  const vehicles = new Map(); // id -> {from, to, t0, dur, data}
+  const POLL = 8000;
+  async function pollVehicles() {
+    const q = `{ vehicles(boundingBox:{minLat:${BBOX.minLat},minLon:${BBOX.minLon},maxLat:${BBOX.maxLat},maxLon:${BBOX.maxLon}}) {
+      vehicleId line{publicCode lineName} mode destinationName delay bearing lastUpdated location{latitude longitude} codespace{codespaceId} } }`;
+    try {
+      const r = await fetch(ENTUR, { method: 'POST', headers: { 'Content-Type': 'application/json', 'ET-Client-Name': CLIENT }, body: JSON.stringify({ query: q }) });
+      const list = (await r.json()).data?.vehicles || [];
+      const now = performance.now();
+      const seen = new Set();
+      for (const v of list) {
+        if (!v.location) continue;
+        const age = (Date.now() - Date.parse(v.lastUpdated)) / 60000;
+        if (age > 20) continue; // utdatert posisjon
+        const pos = [v.location.longitude, v.location.latitude];
+        const prev = vehicles.get(v.vehicleId);
+        const cur = prev ? currentPos(prev, now) : pos;
+        vehicles.set(v.vehicleId, { from: cur, to: pos, t0: now, dur: POLL, data: v });
+        seen.add(v.vehicleId);
+      }
+      for (const id of [...vehicles.keys()]) if (!seen.has(id)) vehicles.delete(id);
+      const buses = [...vehicles.values()].filter(v => v.data.mode === 'BUS').length;
+      document.getElementById('c-buss').textContent = `${buses} busser · ${vehicles.size - buses} andre`;
+    } catch { document.getElementById('c-buss').textContent = 'utilgjengelig'; }
+  }
+  function currentPos(v, now) {
+    const t = Math.min(1, (now - v.t0) / v.dur);
+    return [v.from[0] + (v.to[0] - v.from[0]) * t, v.from[1] + (v.to[1] - v.from[1]) * t];
+  }
+  function animate() {
+    const now = performance.now();
+    const src = map.getSource('buss');
+    if (src && document.getElementById('t-buss').checked) {
+      src.setData({ type: 'FeatureCollection', features: [...vehicles.entries()].map(([id, v]) => ({
+        type: 'Feature', geometry: { type: 'Point', coordinates: currentPos(v, now) },
+        properties: { id, linje: v.data.line?.publicCode || '', mode: v.data.mode } })) });
+    }
+    requestAnimationFrame(animate);
+  }
+
+  function showVehicle(id) {
+    const v = vehicles.get(id); if (!v) return;
+    const d = v.data, mode = { BUS: 'Buss', FERRY: 'Ferje', RAIL: 'Tog', COACH: 'Ekspressbuss' }[d.mode] || d.mode;
+    const delay = d.delay == null ? '–' : (Math.abs(d.delay) < 60 ? 'I rute' : `${Math.round(Math.abs(d.delay) / 60)} min ${d.delay > 0 ? 'forsinket' : 'før tiden'}`);
+    openCard(`<h3>${esc(mode)} ${esc(d.line?.publicCode || '')}</h3><dl>
+      <dt>Linje</dt><dd>${esc(d.line?.lineName || '–')}</dd>
+      <dt>Mot</dt><dd>${esc(d.destinationName || '–')}</dd>
+      <dt>Status</dt><dd>${esc(delay)}</dd>
+      <dt>Selskap</dt><dd>${esc(d.codespace?.codespaceId === 'SKY' ? 'Skyss' : d.codespace?.codespaceId || '–')}</dd>
+      <dt>Oppdatert</dt><dd>${new Date(d.lastUpdated).toLocaleTimeString('nb-NO')}</dd></dl>
+      <p class="fine" style="margin-top:8px">Kilde: Entur sanntid (SIRI-VM)</p>`);
+  }
+
+  // ---------- Kystverket: AIS fra GitHub Action, fyr direkte ----------
+  const SHIP_TYPE = t => t >= 60 && t < 70 ? ['Passasjerskip', 'pass'] : t >= 70 && t < 80 ? ['Lasteskip', 'last'] : t >= 80 && t < 90 ? ['Tankskip', 'last'] : t === 30 ? ['Fiskefartøy', 'annet'] : t === 52 ? ['Slepebåt', 'annet'] : t === 37 ? ['Fritidsbåt', 'annet'] : t >= 40 && t < 50 ? ['Hurtigbåt', 'pass'] : t ? ['Annet fartøy', 'annet'] : ['Ukjent type', 'annet'];
+  async function loadAis() {
+    try {
+      const d = await (await fetch(BASE + 'data/ais.json', { cache: 'no-cache' })).json();
+      const feats = (d.skip || []).map(s => {
+        const [typ, gruppe] = SHIP_TYPE(s.type);
+        return { type: 'Feature', geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
+          properties: { ...s, typ, gruppe, rot: s.retning ?? s.kurs ?? 0, navn: s.navn || '' } };
+      });
+      map.getSource('ais').setData({ type: 'FeatureCollection', features: feats });
+      document.getElementById('c-ais').textContent = `${feats.length} · ${ago(d.hentet)}`;
+    } catch { document.getElementById('c-ais').textContent = 'utilgjengelig'; }
+  }
+  function showShip(p) {
+    openCard(`<h3>${esc(p.navn || 'MMSI ' + p.mmsi)}</h3><dl>
+      <dt>Type</dt><dd>${esc(p.typ)}</dd>
+      <dt>Fart</dt><dd>${p.fart == null ? '–' : fmt(p.fart) + ' knop'}</dd>
+      <dt>Kurs</dt><dd>${p.kurs == null ? '–' : Math.round(p.kurs) + '°'}</dd>
+      <dt>Destinasjon</dt><dd>${esc(p.dest || '–')}</dd>
+      <dt>Lengde</dt><dd>${p.lengde ? p.lengde + ' m' : '–'}</dd>
+      <dt>MMSI</dt><dd>${esc(p.mmsi)}</dd>
+      <dt>Sett</dt><dd>${new Date(p.tid).toLocaleTimeString('nb-NO')}</dd></dl>
+      <p class="fine" style="margin-top:8px">Kilde: Kystverkets åpne AIS-strøm, oppdateres ca. hvert 10. minutt.</p>`);
+  }
+
+  let fyrLoaded = false;
+  async function loadLights() {
+    if (fyrLoaded) return; fyrLoaded = true;
+    const url = 'https://nfs.kystverket.no/arcgis/rest/services/FDV_WMS/MapServer/0/query?where=1%3D1&geometry=' +
+      `${BBOX.minLon},${BBOX.minLat},${BBOX.maxLon},${BBOX.maxLat}&geometryType=esriGeometryEnvelope&inSR=4326&outSR=4326&outFields=navn,sted,fyrlisteKarakter,Beskrivelse,lyshoyde,rekkeviddeHvit,rekkeviddeRod,rekkeviddeGronn,rekkeviddeGul&f=geojson`;
+    try {
+      const d = await (await fetch(url)).json();
+      for (const f of d.features) {
+        const p = f.properties;
+        p.farge = p.rekkeviddeHvit ? '#fffbe6' : p.rekkeviddeRod ? '#e53935' : p.rekkeviddeGronn ? '#2e9e4f' : p.rekkeviddeGul ? '#f2c230' : '#f2c230';
+      }
+      map.getSource('fyr').setData(d);
+      document.getElementById('c-fyr').textContent = d.features.length;
+    } catch { fyrLoaded = false; document.getElementById('c-fyr').textContent = 'utilgjengelig'; }
+  }
+  function showLight(p) {
+    const r = [['Hvit', p.rekkeviddeHvit], ['Rød', p.rekkeviddeRod], ['Grønn', p.rekkeviddeGronn], ['Gul', p.rekkeviddeGul]].filter(x => x[1] && x[1] !== 'null').map(x => `${x[0]} ${fmt(+x[1])} nm`).join(', ');
+    openCard(`<h3>${esc(p.navn || 'Lykt')}</h3><dl>
+      <dt>Sted</dt><dd>${esc(p.sted || '–')}</dd>
+      <dt>Karakter</dt><dd>${esc(p.fyrlisteKarakter || '–')}</dd>
+      <dt>Beskrivelse</dt><dd>${esc(p.Beskrivelse || '–')}</dd>
+      <dt>Lyshøyde</dt><dd>${p.lyshoyde ? p.lyshoyde + ' m' : '–'}</dd>
+      <dt>Rekkevidde</dt><dd>${esc(r || '–')}</dd></dl>
+      <p class="fine" style="margin-top:8px">Kilde: Kystverket, navigasjonsinstallasjoner</p>`);
+  }
+
+  // ---------- Politiloggen (via GitHub Action) ----------
+  let police = [];
+  async function loadPolice() {
+    try {
+      const d = await (await fetch(BASE + 'data/politi.json', { cache: 'no-cache' })).json();
+      police = d.hendelser || [];
+      const since = Date.now() - 36 * 3600e3;
+      const recent = police.filter(h => Date.parse(h.oppdatert) > since);
+      map.getSource('politi').setData({ type: 'FeatureCollection', features: recent.filter(h => h.pos).map(h => ({
+        type: 'Feature', geometry: { type: 'Point', coordinates: h.pos }, properties: { id: h.id, aktiv: !!h.aktiv } })) });
+      document.getElementById('c-politi').textContent = `${recent.length} · ${ago(d.hentet)}`;
+      const list = document.getElementById('police-list');
+      list.innerHTML = '';
+      const sorted = [...recent].sort((a, b) => (b.nordhordland - a.nordhordland) || (Date.parse(b.oppdatert) - Date.parse(a.oppdatert)));
+      for (const h of sorted.slice(0, 25)) {
+        const b = document.createElement('button');
+        b.className = 'police-item' + (h.nordhordland ? ' nh' : '');
+        b.innerHTML = `<b>${esc(h.kategori || 'Hendelse')}</b> · ${esc(h.sted || '')}, ${esc(h.kommune || '')}<small>${esc(h.meldinger[0]?.tekst?.slice(0, 110) || '')}</small><small>${new Date(h.oppdatert).toLocaleString('nb-NO', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}${h.aktiv ? ' · aktiv' : ''}</small>`;
+        b.onclick = () => { if (h.pos) map.flyTo({ center: h.pos, zoom: 13.5, pitch: 55 }); showPolice(h.id); };
+        list.appendChild(b);
+      }
+      if (!sorted.length) list.innerHTML = '<p class="fine">Ingen hendelser siste døgn.</p>';
+    } catch { document.getElementById('police-list').innerHTML = '<p class="fine">Politiloggen er utilgjengelig akkurat nå.</p>'; }
+  }
+  function showPolice(id) {
+    const h = police.find(x => x.id === id); if (!h) return;
+    openCard(`<h3>${esc(h.kategori || 'Hendelse')}${h.aktiv ? ' <span class="tag">aktiv</span>' : ''}</h3>
+      <dl><dt>Sted</dt><dd>${esc(h.sted || '–')}, ${esc(h.kommune || '')}</dd></dl>
+      <div class="msgs">${[...h.meldinger].reverse().map(m => `<p><time>${new Date(m.tid).toLocaleString('nb-NO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</time>${esc(m.tekst)}</p>`).join('')}</div>
+      <p class="fine">Kilde: Politiloggen, Politiets fellestjenester. Plassering er omtrentlig (stedsnavn).</p>`);
+  }
+
+  // ---------- temperatur (MET Norge) ----------
+  const SYMBOL_NB = { clearsky: 'Klarvær', fair: 'Lettskyet', partlycloudy: 'Delvis skyet', cloudy: 'Skyet', rain: 'Regn', lightrain: 'Lett regn', heavyrain: 'Kraftig regn', rainshowers: 'Regnbyger', lightrainshowers: 'Lette regnbyger', heavyrainshowers: 'Kraftige regnbyger', fog: 'Tåke', snow: 'Snø', lightsnow: 'Lett snø', sleet: 'Sludd', lightsleet: 'Lett sludd' };
+  const wCache = new Map();
+  let wTimer;
+  async function updateWeather() {
+    const c = map.getCenter();
+    const lat = c.lat.toFixed(2), lon = c.lng.toFixed(2), key = lat + ',' + lon;
+    try {
+      let d = wCache.get(key);
+      if (!d) {
+        d = await (await fetch(`https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${lat}&lon=${lon}`)).json();
+        wCache.set(key, d);
+      }
+      const now = d.properties.timeseries[0].data;
+      const t = now.instant.details.air_temperature;
+      const sym = (now.next_1_hours?.summary.symbol_code || '').replace(/_(day|night|polartwilight)$/, '');
+      const rain = now.next_1_hours?.details.precipitation_amount;
+      document.getElementById('w-temp').textContent = `${t > 0 ? '' : ''}${t.toFixed(1).replace('.', ',')}°`;
+      document.getElementById('w-meta').innerHTML = `<b>${esc(SYMBOL_NB[sym] || sym || '–')}</b><br>Vind ${fmt(now.instant.details.wind_speed)} m/s · nedbør ${rain == null ? '–' : fmt(rain) + ' mm'} neste time<br>${lat}° N, ${lon}° Ø · MET Norge`;
+    } catch { document.getElementById('w-meta').textContent = 'Fikk ikke hentet værdata.'; }
+  }
+  map.on('moveend', () => { clearTimeout(wTimer); wTimer = setTimeout(updateWeather, 600); });
+
+  // ---------- start sanntid ----------
+  function startLive() {
+    pollVehicles(); setInterval(() => document.getElementById('t-buss').checked && !document.hidden && pollVehicles(), POLL);
+    requestAnimationFrame(animate);
+    loadAis(); setInterval(loadAis, 120000);
+    loadPolice(); setInterval(loadPolice, 120000);
+    updateWeather();
+  }
+
+  // ---------- panel ----------
+  const placesEl = document.getElementById('places');
+  for (const p of PLACES) {
+    const b = document.createElement('button');
+    b.className = 'place';
+    b.innerHTML = `<b>${esc(p.n)}</b><small>${esc(p.k)}</small>`;
+    b.onclick = () => map.flyTo({ center: p.c, zoom: p.z, pitch: 62, bearing: p.b, duration: 2600, essential: true });
+    placesEl.appendChild(b);
+  }
+
+  document.getElementById('basemap').onchange = e => {
+    const v = e.target.value;
+    for (const k of Object.keys(RASTERS)) map.setLayoutProperty('r-' + k, 'visibility', k === v ? 'visible' : 'none');
+    // Kartverkets raster har egne navn; skjul vektornavn for dem, behold for flyfoto og lyst kart.
+    const hideLabels = ['topo', 'graatone', 'sjokart'].includes(v);
+    for (const l of map.getStyle().layers) {
+      if (l.type === 'symbol' && l.source === 'openmaptiles') map.setLayoutProperty(l.id, 'visibility', hideLabels ? 'none' : 'visible');
+    }
+  };
+  const vis = (ids, on) => ids.forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none'));
+  document.getElementById('t-bygg').onchange = e => vis(['bygg-vegg', 'bygg-tak'], e.target.checked);
+  document.getElementById('t-kilde').onchange = e => {
+    map.setPaintProperty('bygg-vegg', 'fill-extrusion-color', e.target.checked
+      ? ['case', ['boolean', ['feature-state', 'hover'], false], '#c4ef5b', SRC_COLOR]
+      : ['case', ['boolean', ['feature-state', 'hover'], false], '#c4ef5b', '#a9aeb0']);
+    map.setPaintProperty('bygg-tak', 'fill-extrusion-color', e.target.checked ? SRC_COLOR : '#8f9496');
+    document.getElementById('legend').hidden = !e.target.checked;
+  };
+  document.getElementById('t-buss').onchange = e => { vis(['buss', 'buss-nr'], e.target.checked); if (e.target.checked) pollVehicles(); };
+  document.getElementById('t-ais').onchange = e => vis(['ais'], e.target.checked);
+  document.getElementById('t-fyr').onchange = e => { vis(['fyr'], e.target.checked); if (e.target.checked) loadLights(); };
+  document.getElementById('t-politi').onchange = e => vis(['politi', 'politi-ikon'], e.target.checked);
+  document.getElementById('t-terreng').onchange = e => map.setTerrain(e.target.checked ? { source: 'terrain', exaggeration: 1 } : null);
+
+  const panel = document.getElementById('panel');
+  document.getElementById('collapse').onclick = e => {
+    panel.classList.toggle('collapsed');
+    e.currentTarget.textContent = panel.classList.contains('collapsed') ? '+' : '–';
+  };
+
+  document.getElementById('share').onclick = async () => {
+    try { await navigator.clipboard.writeText(location.href); toast('Lenke til utsnittet er kopiert.'); }
+    catch { toast(location.href); }
+  };
+
+  // ---------- koordinatbrikke, kort og hjelpere ----------
+  const coordText = document.getElementById('coord-text');
+  map.on('move', () => {
+    const c = map.getCenter();
+    coordText.textContent = `${c.lat.toFixed(4)}° N · ${c.lng.toFixed(4)}° Ø · 3D Nordhordland`;
   });
 
+  const card = document.getElementById('card');
+  function openCard(html) {
+    card.innerHTML = `<button class="icon-btn close" aria-label="Lukk">×</button>` + html;
+    card.hidden = false;
+    card.querySelector('.close').onclick = () => card.hidden = true;
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') card.hidden = true; });
+
+  let toastTimer;
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 3200);
+  }
+  function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+  function fmt(n) { return n == null || isNaN(n) ? '–' : (+n).toLocaleString('nb-NO', { maximumFractionDigits: 1 }); }
+  function ago(iso) {
+    if (!iso) return 'ukjent tid';
+    const m = Math.round((Date.now() - Date.parse(iso)) / 60000);
+    return m < 1 ? 'nå' : m < 60 ? `${m} min siden` : `${Math.round(m / 60)} t siden`;
+  }
 })();
 </script>
 </body>
