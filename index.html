@@ -441,7 +441,7 @@
           properties: { ...s, typ, gruppe, rot: s.retning ?? s.kurs ?? 0, navn: s.navn || '' } };
       });
       map.getSource('ais').setData({ type: 'FeatureCollection', features: feats });
-      document.getElementById('c-ais').textContent = `${feats.length} · ${ago(d.hentet)}`;
+      document.getElementById('c-ais').textContent = feats.length ? `${feats.length} · ${ago(d.hentet)}` : 'ingen data nå';
     } catch { document.getElementById('c-ais').textContent = 'utilgjengelig'; }
   }
   function showShip(p) {
