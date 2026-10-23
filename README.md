@@ -13,12 +13,11 @@
 | Bakgrunnskart | OpenFreeMap (lyst kart), Kartverket WMTS (topo, gråtone, sjøkart), Esri flyfoto | Direkte |
 | Terreng i 3D | AWS Terrain Tiles (inkluderer Kartverkets DTM) | Direkte |
 | Busser, ferjer og tog | Entur sanntid (SIRI-VM, GraphQL) | Hvert 8. sekund, animert |
-| Skip | Kystverkets åpne AIS-strøm | Hvert 10. minutt (GitHub Action) |
 | Fyr og lykter | Kystverket, navigasjonsinstallasjoner (ArcGIS REST) | Direkte |
 | Politiloggen | Politiets fellestjenester, stedfestet med Kartverkets stedsnavn-API | Hvert 10. minutt (GitHub Action) |
 | Temperatur | MET Norge locationforecast | Ved flytting av kartet |
 
-Politiloggen og AIS kan ikke leses direkte fra nettleseren (mangler CORS / er en TCP-strøm), derfor henter workflowen `.github/workflows/live.yml` dem hvert 10. minutt med `tools/fetch_live.py` og publiserer siden på nytt.
+Politiloggen kan ikke leses direkte fra nettleseren (mangler CORS), derfor henter workflowen `.github/workflows/live.yml` den hvert 10. minutt med `tools/fetch_live.py` og publiserer siden på nytt.
 
 ## Bygge bygningsflisene på nytt
 

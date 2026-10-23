@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Nordhordland i 3D</title>
-<meta name="description" content="Åpent 3D-kart over Nordhordland: bygninger med høyder fra laserdata, busser i sanntid, skip, temperatur og politiloggen.">
+<meta name="description" content="Åpent 3D-kart over Nordhordland: bygninger med høyder fra laserdata, busser i sanntid, temperatur og politiloggen.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.css">
@@ -22,7 +22,6 @@
     --lime-ink:#17220a;
     --bus:#e4572e;
     --ferry:#2f7fd1;
-    --ship:#2b6cb0;
     --police:#1d3f8f;
     --chip:#ffffff;
     --chip-ink:#1d2622;
@@ -165,7 +164,6 @@
     <label class="toggle"><span class="name">Vis 3D-bygninger</span><span class="count" id="c-bygg"></span><input type="checkbox" id="t-bygg" checked><span></span></label>
     <label class="toggle"><span class="name">Farge etter høydekilde</span><input type="checkbox" id="t-kilde"><span></span></label>
     <label class="toggle"><span class="dot" style="background:var(--bus)"></span><span class="name">Busser og ferjer (Entur)</span><span class="count" id="c-buss"></span><input type="checkbox" id="t-buss" checked><span></span></label>
-    <label class="toggle"><span class="dot" style="background:var(--ship)"></span><span class="name">Skip (Kystverket AIS)</span><span class="count" id="c-ais"></span><input type="checkbox" id="t-ais" checked><span></span></label>
     <label class="toggle"><span class="dot" style="background:#f2c230"></span><span class="name">Fyr og lykter (Kystverket)</span><span class="count" id="c-fyr"></span><input type="checkbox" id="t-fyr"><span></span></label>
     <label class="toggle"><span class="dot" style="background:var(--police)"></span><span class="name">Politiloggen</span><span class="count" id="c-politi"></span><input type="checkbox" id="t-politi" checked><span></span></label>
     <label class="toggle"><span class="name">Terreng i 3D</span><input type="checkbox" id="t-terreng" checked><span></span></label>
@@ -187,7 +185,7 @@
     <a class="btn" href="https://github.com/sondreolsen/nordhordland-3d-kart" target="_blank" rel="noopener">Bruk data ↗</a>
   </div>
 
-  <p class="fine collapsible" id="credits">Bygninger © OpenStreetMap-bidragsytere (ODbL), høyder fra Kartverket (DOM/DTM 1 m). Sanntid: Entur, Kystverket, Politiets fellestjenester, MET Norge.</p>
+  <p class="fine collapsible" id="credits">Bygninger © OpenStreetMap-bidragsytere (ODbL), høyder fra Kartverket (DOM/DTM 1 m). Sanntid: Entur, Politiets fellestjenester, MET Norge. Fyr og lykter: Kystverket.</p>
 </aside>
 
 <div class="coord" id="coord"><span class="live"></span><span id="coord-text">60.5453° N · 5.2821° Ø · 3D Nordhordland</span></div>
@@ -321,35 +319,12 @@
   }
 
   // ---------- sanntidslag ----------
-  function arrowIcon(color, size = 34) {
-    const c = document.createElement('canvas'); c.width = c.height = size * 2;
-    const g = c.getContext('2d'); g.scale(2, 2);
-    g.translate(size / 2, size / 2);
-    g.fillStyle = color; g.strokeStyle = '#fff'; g.lineWidth = 2;
-    g.beginPath(); g.moveTo(0, -size * 0.42); g.lineTo(size * 0.26, size * 0.34); g.lineTo(0, size * 0.2); g.lineTo(-size * 0.26, size * 0.34); g.closePath();
-    g.fill(); g.stroke();
-    return { width: size * 2, height: size * 2, data: g.getImageData(0, 0, size * 2, size * 2).data };
-  }
-
   function addLiveLayers() {
     const empty = { type: 'FeatureCollection', features: [] };
-    map.addImage('ship-arrow', arrowIcon('#2b6cb0'), { pixelRatio: 2 });
-    map.addImage('ship-arrow-pass', arrowIcon('#7b4fc9'), { pixelRatio: 2 });
-    map.addImage('ship-arrow-cargo', arrowIcon('#2f8f6b'), { pixelRatio: 2 });
-
     map.addSource('fyr', { type: 'geojson', data: empty });
     map.addLayer({ id: 'fyr', type: 'circle', source: 'fyr', layout: { visibility: 'none' }, paint: {
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 9, 2.5, 15, 6], 'circle-color': ['get', 'farge'],
       'circle-stroke-color': '#1d2622', 'circle-stroke-width': 1.2, 'circle-pitch-alignment': 'map' } });
-
-    map.addSource('ais', { type: 'geojson', data: empty });
-    map.addLayer({ id: 'ais', type: 'symbol', source: 'ais', layout: {
-      'icon-image': ['match', ['get', 'gruppe'], 'pass', 'ship-arrow-pass', 'last', 'ship-arrow-cargo', 'ship-arrow'],
-      'icon-size': ['interpolate', ['linear'], ['zoom'], 9, 0.45, 15, 0.9],
-      'icon-rotate': ['coalesce', ['get', 'rot'], 0], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true,
-      'text-field': ['step', ['zoom'], '', 12, ['coalesce', ['get', 'navn'], '']], 'text-font': ['Noto Sans Regular'],
-      'text-size': 11, 'text-offset': [0, 1.5], 'text-optional': true } ,
-      paint: { 'text-color': '#16406e', 'text-halo-color': '#fff', 'text-halo-width': 1.4 } });
 
     map.addSource('politi', { type: 'geojson', data: empty });
     map.addLayer({ id: 'politi', type: 'circle', source: 'politi', paint: {
@@ -366,12 +341,11 @@
       'text-field': ['get', 'linje'], 'text-font': ['Noto Sans Bold'], 'text-size': ['interpolate', ['linear'], ['zoom'], 11, 8, 16, 11],
       'text-allow-overlap': true }, paint: { 'text-color': '#fff' } });
 
-    for (const id of ['buss', 'ais', 'politi', 'fyr']) {
+    for (const id of ['buss', 'politi', 'fyr']) {
       map.on('mouseenter', id, () => map.getCanvas().style.cursor = 'pointer');
       map.on('mouseleave', id, () => map.getCanvas().style.cursor = '');
     }
     map.on('click', 'buss', e => showVehicle(e.features[0].properties.id));
-    map.on('click', 'ais', e => showShip(e.features[0].properties));
     map.on('click', 'politi', e => showPolice(e.features[0].properties.id));
     map.on('click', 'fyr', e => showLight(e.features[0].properties));
   }
@@ -430,32 +404,7 @@
       <p class="fine" style="margin-top:8px">Kilde: Entur sanntid (SIRI-VM)</p>`);
   }
 
-  // ---------- Kystverket: AIS fra GitHub Action, fyr direkte ----------
-  const SHIP_TYPE = t => t >= 60 && t < 70 ? ['Passasjerskip', 'pass'] : t >= 70 && t < 80 ? ['Lasteskip', 'last'] : t >= 80 && t < 90 ? ['Tankskip', 'last'] : t === 30 ? ['Fiskefartøy', 'annet'] : t === 52 ? ['Slepebåt', 'annet'] : t === 37 ? ['Fritidsbåt', 'annet'] : t >= 40 && t < 50 ? ['Hurtigbåt', 'pass'] : t ? ['Annet fartøy', 'annet'] : ['Ukjent type', 'annet'];
-  async function loadAis() {
-    try {
-      const d = await (await fetch(BASE + 'data/ais.json', { cache: 'no-cache' })).json();
-      const feats = (d.skip || []).map(s => {
-        const [typ, gruppe] = SHIP_TYPE(s.type);
-        return { type: 'Feature', geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
-          properties: { ...s, typ, gruppe, rot: s.retning ?? s.kurs ?? 0, navn: s.navn || '' } };
-      });
-      map.getSource('ais').setData({ type: 'FeatureCollection', features: feats });
-      document.getElementById('c-ais').textContent = feats.length ? `${feats.length} · ${ago(d.hentet)}` : 'ingen data nå';
-    } catch { document.getElementById('c-ais').textContent = 'utilgjengelig'; }
-  }
-  function showShip(p) {
-    openCard(`<h3>${esc(p.navn || 'MMSI ' + p.mmsi)}</h3><dl>
-      <dt>Type</dt><dd>${esc(p.typ)}</dd>
-      <dt>Fart</dt><dd>${p.fart == null ? '–' : fmt(p.fart) + ' knop'}</dd>
-      <dt>Kurs</dt><dd>${p.kurs == null ? '–' : Math.round(p.kurs) + '°'}</dd>
-      <dt>Destinasjon</dt><dd>${esc(p.dest || '–')}</dd>
-      <dt>Lengde</dt><dd>${p.lengde ? p.lengde + ' m' : '–'}</dd>
-      <dt>MMSI</dt><dd>${esc(p.mmsi)}</dd>
-      <dt>Sett</dt><dd>${new Date(p.tid).toLocaleTimeString('nb-NO')}</dd></dl>
-      <p class="fine" style="margin-top:8px">Kilde: Kystverkets åpne AIS-strøm, oppdateres ca. hvert 10. minutt.</p>`);
-  }
-
+  // ---------- Kystverket: fyr og lykter ----------
   let fyrLoaded = false;
   async function loadLights() {
     if (fyrLoaded) return; fyrLoaded = true;
@@ -541,7 +490,6 @@
   function startLive() {
     pollVehicles(); setInterval(() => document.getElementById('t-buss').checked && !document.hidden && pollVehicles(), POLL);
     requestAnimationFrame(animate);
-    loadAis(); setInterval(loadAis, 120000);
     loadPolice(); setInterval(loadPolice, 120000);
     updateWeather();
   }
@@ -575,7 +523,6 @@
     document.getElementById('legend').hidden = !e.target.checked;
   };
   document.getElementById('t-buss').onchange = e => { vis(['buss', 'buss-nr'], e.target.checked); if (e.target.checked) pollVehicles(); };
-  document.getElementById('t-ais').onchange = e => vis(['ais'], e.target.checked);
   document.getElementById('t-fyr').onchange = e => { vis(['fyr'], e.target.checked); if (e.target.checked) loadLights(); };
   document.getElementById('t-politi').onchange = e => vis(['politi', 'politi-ikon'], e.target.checked);
   document.getElementById('t-terreng').onchange = e => map.setTerrain(e.target.checked ? { source: 'terrain', exaggeration: 1 } : null);
