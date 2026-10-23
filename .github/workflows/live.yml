@@ -31,9 +31,6 @@ jobs:
       - run: pip install requests pyais
       - name: Hent politilogg og AIS
         run: python tools/fetch_live.py data
-        env:
-          BW_CLIENT_ID: ${{ secrets.BW_CLIENT_ID }}
-          BW_CLIENT_SECRET: ${{ secrets.BW_CLIENT_SECRET }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
