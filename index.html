@@ -253,7 +253,8 @@
 
   let styleReady = false;
   map.on('style.load', () => {
-    if (styleReady) return;
+    // Den tomme startstilen laster også; vent på den ekte (har terrengkilden).
+    if (styleReady || !map.getSource('terrain')) return;
     styleReady = true;
     map.setTerrain({ source: 'terrain', exaggeration: 1 });
     addBuildings();
